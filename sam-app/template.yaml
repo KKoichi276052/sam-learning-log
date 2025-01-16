@@ -1,0 +1,99 @@
+# This is an AWS SAM (Serverless Application Model) template that defines:
+#
+# Globals:
+#   - Sets a 3 second timeout for all Lambda functions
+#   - Enables active tracing
+#   - Configures JSON logging format
+#   - Enables API tracing
+#
+# Resources:
+#   HelloWorldFunction:
+#     - A Lambda function written in TypeScript/Node.js
+#     - Exposed via API Gateway at /hello (GET method)
+#     - Uses esbuild for TypeScript compilation with minification and sourcemaps
+#
+#   ApplicationResourceGroup:
+#     - Creates a resource group for application monitoring
+#
+#   ApplicationInsightsMonitoring:
+#     - Enables AWS Application Insights monitoring
+#
+# Outputs:
+#   - API Gateway endpoint URL
+#   - Lambda function ARN
+#   - IAM role ARN for the Lambda function
+#
+# Note: This template uses AWS SAM transform version 2016-10-31
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: |
+  sam-app
+  Sample SAM Template for sam-app
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 3
+
+    Tracing: Active
+    # You can add LoggingConfig parameters such as the Logformat, Log Group, and SystemLogLevel or ApplicationLogLevel. Learn more here https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html#sam-function-loggingconfig.
+    LoggingConfig:
+      LogFormat: JSON
+  Api:
+    TracingEnabled: true
+Resources:
+  HelloWorldFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: hello-world/
+      Handler: app.lambdaHandler
+      Runtime: nodejs22.x
+      Architectures:
+        - x86_64
+      Events:
+        HelloWorld:
+          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Properties:
+            Path: /hello
+            Method: get
+    # Build configuration for esbuild bundler
+    # BuildMethod: Specifies esbuild as the build tool
+    # BuildProperties:
+    #   Minify: Enables code minification for production
+    #   Target: Sets ECMAScript target version to ES2020
+    #   Sourcemap: Generates source maps for debugging
+    #   EntryPoints: Defines TypeScript entry file for bundling
+    Metadata:
+      # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: es2020
+        Sourcemap: true
+        EntryPoints:
+          - app.ts
+
+  ApplicationResourceGroup:
+    Type: AWS::ResourceGroups::Group
+    Properties:
+      Name: !Sub ApplicationInsights-SAM-${AWS::StackName}
+      ResourceQuery:
+        Type: CLOUDFORMATION_STACK_1_0
+  ApplicationInsightsMonitoring:
+    Type: AWS::ApplicationInsights::Application
+    Properties:
+      ResourceGroupName: !Ref ApplicationResourceGroup
+      AutoConfigurationEnabled: 'true'
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  HelloWorldApi:
+    Description: API Gateway endpoint URL for Prod stage for Hello World function
+    Value: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/
+  HelloWorldFunction:
+    Description: Hello World Lambda Function ARN
+    Value: !GetAtt HelloWorldFunction.Arn
+  HelloWorldFunctionIamRole:
+    Description: Implicit IAM Role created for Hello World function
+    Value: !GetAtt HelloWorldFunctionRole.Arn
